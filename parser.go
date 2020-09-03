@@ -3,6 +3,7 @@ package parser
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"strconv"
 	"unicode/utf8"
 )
@@ -16,6 +17,7 @@ type Token interface {
 	Nud() Value
 	LeftBinding() int32
 	RightBinding() int32
+    Literal() string
 }
 
 type EOFToken struct {
@@ -37,7 +39,13 @@ func (t *EOFToken) RightBinding() int32 {
 	return 0
 }
 
+func (t *EOFToken) Literal() string {
+    return "eof"
+}
+
 var _ = Token(&EOFToken{})
+
+var  eof = &EOFToken{}
 
 type NumberToken struct {
 	val int64
@@ -58,6 +66,10 @@ func (n *NumberToken) LeftBinding() int32 {
 }
 func (n *NumberToken) RightBinding() int32 {
 	return 100
+}
+
+func (n *NumberToken) Literal() string {
+    return strconv.FormatInt(n.val, 10)
 }
 
 func NewNumberToken(p *Parser, val int64) *NumberToken {
@@ -103,6 +115,7 @@ func (t *AddToken) Led(leftValue Value) Value {
 
 	left, _ = t.left.(int32)
 	right, _ = t.right.(int32)
+    fmt.Println("...left...+ right..", left + right)
 	return left + right
 }
 
@@ -116,6 +129,10 @@ func (t *AddToken) Nud() Value {
 	return 0
 }
 
+func (t *AddToken) Literal() string {
+    return "+";
+}
+
 // Parser to parse expression
 type Parser struct {
 	input       string
@@ -124,6 +141,7 @@ type Parser struct {
 }
 
 // NewParser get a Parser
+
 func NewParser(input string) *Parser {
 	return &Parser{
 		input:       input,
@@ -161,8 +179,8 @@ func (p *Parser) preChar() (rune, error) {
 
 func (p *Parser) peekChar() (rune, error) {
 	var r rune
-	if p.previousPos < len(p.input) {
-		r, _ := utf8.DecodeLastRuneInString(p.input[p.curTokenPos:])
+	if p.curTokenPos< len(p.input) {
+		r, _ := utf8.DecodeRuneInString(p.input[p.curTokenPos:])
 		return r, nil
 	}
 	return r, eol
@@ -175,13 +193,18 @@ func (p *Parser) skipWhiteSpace() {
 		if err == eol {
 			return
 		}
+        isBlank := false
 		switch ch {
 		case '\n':
 		case '\r':
 		case '\t':
 		case ' ':
 			p.consumeChar()
+            isBlank = true
 		}
+        if !isBlank {
+            break
+        }
 	}
 }
 
@@ -196,7 +219,7 @@ func (p *Parser) getNextToken() Token {
 	p.skipWhiteSpace()
 	r, err := p.peekChar()
 	if err == eol {
-		return &EOFToken{}
+		return eof
 	}
 	switch r {
 	case '+':
@@ -208,7 +231,6 @@ func (p *Parser) getNextToken() Token {
 			for p.isDigit(r) && err == nil {
 				buffer.WriteRune(r)
 				p.consumeChar()
-
 				r, err = p.peekChar()
 			}
 			num := buffer.String()
@@ -219,19 +241,23 @@ func (p *Parser) getNextToken() Token {
 		}
 
 	}
-	return &EOFToken{}
+	return eof
 }
 
 // Parse parse expresion
 func (p *Parser) Parse(rbp int32) Value {
 	token := p.getNextToken()
+    fmt.Printf("first token %s\n", token.Literal())
 	old := token
 	token = p.getNextToken()
+    fmt.Printf("second token %s\n", token.Literal())
 	leftValue := old.Nud()
+    fmt.Printf("rbp  %d\n", rbp)
 
-	for rbp < token.LeftBinding() {
+	for rbp < token.LeftBinding() && token != eof {
 		old = token
 		token = p.getNextToken()
+        fmt.Printf("parsed token %s\n", token.Literal())
 		leftValue = old.Led(leftValue)
 	}
 	return leftValue
