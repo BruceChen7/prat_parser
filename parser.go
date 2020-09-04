@@ -133,6 +133,55 @@ func (t *AddToken) Literal() string {
 	return "+"
 }
 
+var _ = Token(&AddToken{})
+
+type MinusToken struct {
+	left  Value
+	right Value
+	lbp   int32
+	rbp   int32
+	p     *Parser
+}
+
+func (m *MinusToken) Led(leftVal Value) Value {
+	m.left = leftVal
+	m.right = m.p.Parse(m.rbp)
+	var left int64
+	var right int64
+	left, _ = m.left.(int64)
+	right, _ = m.right.(int64)
+
+	return left - right
+}
+
+func (m *MinusToken) LeftBinding() int32 {
+	return m.lbp
+}
+
+func (m *MinusToken) RightBinding() int32 {
+    return m.rbp
+}
+
+func (m *MinusToken) Nud() Value  {
+    right := m.p.Parse(m.LeftBinding())
+    r, _ := right.(int64)
+    return -1 * r
+}
+
+func (m *MinusToken) Literal() string {
+    return "-"
+}
+
+func NewMinsToken(p *Parser) *MinusToken {
+    return &MinusToken {
+        lbp: 100,
+        rbp: 10,
+        p: p,
+    }
+}
+
+var _ = Token(&MinusToken{})
+
 // Parser to parse expression
 type Parser struct {
 	input       string
@@ -225,10 +274,14 @@ func (p *Parser) getNextToken() Token {
 	case '+':
 		p.consumeChar()
 		return NewAddToken(p)
+    case '-':
+        p.consumeChar()
+        return NewMinsToken(p)
 	default:
 		var buffer bytes.Buffer
-		if p.isDigit(r) {
-			for p.isDigit(r) && err == nil {
+
+        if p.isDigit(r) {
+           for p.isDigit(r) && err == nil {
 				buffer.WriteRune(r)
 				p.consumeChar()
 				r, err = p.peekChar()
@@ -237,27 +290,31 @@ func (p *Parser) getNextToken() Token {
 			n, _ := strconv.ParseInt(num, 10, 32)
 			return NewNumberToken(p, n)
 		} else {
-
 		}
-
 	}
+
 	return eof
 }
 
+
+var token Token
 // Parse parse expresion
 func (p *Parser) Parse(rbp int32) Value {
-	token := p.getNextToken()
-	fmt.Printf("first token %s\n", token.Literal())
-	old := token
+    old := token
 	token = p.getNextToken()
 	fmt.Printf("second token %s\n", token.Literal())
 	leftValue := old.Nud()
 	fmt.Printf("rbp  %d\n", rbp)
-
 	for rbp < token.LeftBinding() && token != eof {
-		old = token
-		leftValue = old.Led(leftValue)
+        old = token
+        // 这里必须先使用token
 		token = p.getNextToken()
+		leftValue = old.Led(leftValue)
 	}
 	return leftValue
+}
+
+func (p *Parser)Expr() Value {
+    token  = p.getNextToken()
+    return p.Parse(0)
 }
