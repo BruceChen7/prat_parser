@@ -123,7 +123,7 @@ func (t *AddToken) Nud() Value {
 	t.left = t.p.Parse(t.LeftBinding())
 	t.right = 0
 
-	if val, ok := t.left.(int32); ok {
+	if val, ok := t.left.(int64); ok {
 		return val
 	}
 	return 0
@@ -256,9 +256,8 @@ func (p *Parser) Parse(rbp int32) Value {
 
 	for rbp < token.LeftBinding() && token != eof {
 		old = token
-		token = p.getNextToken()
-		fmt.Printf("parsed token %s\n", token.Literal())
 		leftValue = old.Led(leftValue)
+		token = p.getNextToken()
 	}
 	return leftValue
 }

@@ -10,8 +10,6 @@ var addOpTests = []struct {
 }{
 	{1, "1 + 0"},
 	{5, "2 + 3"},
-	{5, "+2 + 3"},
-	{7, "+3 + +4"},
 }
 
 // TestAddOperation is testing add operation
