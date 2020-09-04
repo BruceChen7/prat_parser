@@ -17,7 +17,7 @@ type Token interface {
 	Nud() Value
 	LeftBinding() int32
 	RightBinding() int32
-    Literal() string
+	Literal() string
 }
 
 type EOFToken struct {
@@ -40,12 +40,12 @@ func (t *EOFToken) RightBinding() int32 {
 }
 
 func (t *EOFToken) Literal() string {
-    return "eof"
+	return "eof"
 }
 
 var _ = Token(&EOFToken{})
 
-var  eof = &EOFToken{}
+var eof = &EOFToken{}
 
 type NumberToken struct {
 	val int64
@@ -69,7 +69,7 @@ func (n *NumberToken) RightBinding() int32 {
 }
 
 func (n *NumberToken) Literal() string {
-    return strconv.FormatInt(n.val, 10)
+	return strconv.FormatInt(n.val, 10)
 }
 
 func NewNumberToken(p *Parser, val int64) *NumberToken {
@@ -110,12 +110,12 @@ func (t *AddToken) Led(leftValue Value) Value {
 	t.left = leftValue
 	t.right = t.p.Parse(t.RightBinding())
 
-	var left int32
-	var right int32
+	var left int64
+	var right int64
 
-	left, _ = t.left.(int32)
-	right, _ = t.right.(int32)
-    fmt.Println("...left...+ right..", left + right)
+	left, _ = t.left.(int64)
+	right, _ = t.right.(int64)
+	fmt.Println("...left...+ right..", left+right)
 	return left + right
 }
 
@@ -130,7 +130,7 @@ func (t *AddToken) Nud() Value {
 }
 
 func (t *AddToken) Literal() string {
-    return "+";
+	return "+"
 }
 
 // Parser to parse expression
@@ -179,7 +179,7 @@ func (p *Parser) preChar() (rune, error) {
 
 func (p *Parser) peekChar() (rune, error) {
 	var r rune
-	if p.curTokenPos< len(p.input) {
+	if p.curTokenPos < len(p.input) {
 		r, _ := utf8.DecodeRuneInString(p.input[p.curTokenPos:])
 		return r, nil
 	}
@@ -193,18 +193,18 @@ func (p *Parser) skipWhiteSpace() {
 		if err == eol {
 			return
 		}
-        isBlank := false
+		isBlank := false
 		switch ch {
 		case '\n':
 		case '\r':
 		case '\t':
 		case ' ':
 			p.consumeChar()
-            isBlank = true
+			isBlank = true
 		}
-        if !isBlank {
-            break
-        }
+		if !isBlank {
+			break
+		}
 	}
 }
 
@@ -247,17 +247,17 @@ func (p *Parser) getNextToken() Token {
 // Parse parse expresion
 func (p *Parser) Parse(rbp int32) Value {
 	token := p.getNextToken()
-    fmt.Printf("first token %s\n", token.Literal())
+	fmt.Printf("first token %s\n", token.Literal())
 	old := token
 	token = p.getNextToken()
-    fmt.Printf("second token %s\n", token.Literal())
+	fmt.Printf("second token %s\n", token.Literal())
 	leftValue := old.Nud()
-    fmt.Printf("rbp  %d\n", rbp)
+	fmt.Printf("rbp  %d\n", rbp)
 
 	for rbp < token.LeftBinding() && token != eof {
 		old = token
 		token = p.getNextToken()
-        fmt.Printf("parsed token %s\n", token.Literal())
+		fmt.Printf("parsed token %s\n", token.Literal())
 		leftValue = old.Led(leftValue)
 	}
 	return leftValue

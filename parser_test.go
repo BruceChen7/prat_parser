@@ -5,7 +5,7 @@ import (
 )
 
 var addOpTests = []struct {
-	expectValue int32
+	expectValue int64
 	input       string
 }{
 	{1, "1 + 0"},
@@ -20,7 +20,7 @@ func TestAddOperation(t *testing.T) {
 		p := NewParser(tt.input)
 		val := p.Parse(0)
 
-		if value, ok := val.(int32); ok {
+		if value, ok := val.(int64); ok {
 			if value != tt.expectValue {
 				t.Fatalf("expected %d, actual %d", tt.expectValue, value)
 			}
