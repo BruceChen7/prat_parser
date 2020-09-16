@@ -82,105 +82,111 @@ func NewNumberToken(p *Parser, val int64) *NumberToken {
 // Number is Token
 var _ = Token(&NumberToken{})
 
-type AddToken struct {
-	left  Value
-	right Value
-	lbp   int32
-	rbp   int32
-	p     *Parser
+type NudFunc func(t Token) Value
+type LedFunc func(t Token, leftValue Value) Value
+
+type BinaryToken struct {
+	rightBinding int32
+	leftBinding  int32
+	token        string
+	nudFunc      NudFunc
+	ledFunc      LedFunc
+	p            *Parser
 }
 
-func NewAddToken(p *Parser) *AddToken {
-	return &AddToken{
-		lbp: 100,
-		rbp: 10,
-		p:   p,
+func (b BinaryToken) LeftBinding() int32 {
+	return b.leftBinding
+}
+
+func (b BinaryToken) RightBinding() int32 {
+	return b.rightBinding
+}
+
+func (b BinaryToken) Literal() string {
+	return b.token
+}
+
+func (b BinaryToken) Nud() Value {
+	return b.nudFunc(b)
+}
+
+func (b BinaryToken) Led(leftValue Value) Value {
+	return b.ledFunc(b, leftValue)
+}
+
+//
+var _ = Token(&BinaryToken{})
+
+func NewBinaryToken(l, r int32, token string, led LedFunc, nud NudFunc, p *Parser) *BinaryToken {
+	return &BinaryToken{
+		rightBinding: r,
+		leftBinding:  l,
+		token:        token,
+		nudFunc:      nud,
+		ledFunc:      led,
+		p:            p,
 	}
 }
 
-func (t *AddToken) LeftBinding() int32 {
-	return t.lbp
+func NewAddToken(p *Parser) *BinaryToken {
+	return NewBinaryToken(100, 10, "+", AddTokenLed, AddTokenNud, p)
 }
 
-func (t *AddToken) RightBinding() int32 {
-	return t.rbp
-}
+func AddTokenLed(t Token, leftValue Value) Value {
+	if token, ok := t.(BinaryToken); ok {
+		rightValue := token.p.Parse(token.RightBinding())
 
-func (t *AddToken) Led(leftValue Value) Value {
-	t.left = leftValue
-	t.right = t.p.Parse(t.RightBinding())
-
-	var left int64
-	var right int64
-
-	left, _ = t.left.(int64)
-	right, _ = t.right.(int64)
-	fmt.Println("...left...+ right..", left+right)
-	return left + right
-}
-
-func (t *AddToken) Nud() Value {
-	t.left = t.p.Parse(t.LeftBinding())
-	t.right = 0
-
-	if val, ok := t.left.(int64); ok {
-		return val
+		left, _ := leftValue.(int64)
+		right, _ := rightValue.(int64)
+		fmt.Println("...left...+ right..", left+right)
+		return left + right
 	}
 	return 0
 }
 
-func (t *AddToken) Literal() string {
-	return "+"
+func AddTokenNud(t Token) Value {
+	if token, ok := t.(BinaryToken); ok {
+		leftVal := token.p.Parse(t.LeftBinding())
+
+		if val, ok := leftVal.(int64); ok {
+			return val
+		}
+	}
+	return 0
 }
 
-var _ = Token(&AddToken{})
+func MinusTokenLed(token Token, leftVal Value) Value {
+	if m, ok := token.(BinaryToken); ok {
+        rightVal := m.p.Parse(m.RightBinding())
+		var left int64
+		var right int64
+		left, _ = leftVal.(int64)
+		right, _ = rightVal.(int64)
 
-type MinusToken struct {
-	left  Value
-	right Value
-	lbp   int32
-	rbp   int32
-	p     *Parser
+		return left - right
+	}
+	return 0
 }
 
-func (m *MinusToken) Led(leftVal Value) Value {
-	m.left = leftVal
-	m.right = m.p.Parse(m.rbp)
-	var left int64
-	var right int64
-	left, _ = m.left.(int64)
-	right, _ = m.right.(int64)
-
-	return left - right
+func MinusTokenNud(token Token) Value {
+	if m, ok := token.(BinaryToken); ok {
+		right := m.p.Parse(m.LeftBinding())
+		r, _ := right.(int64)
+		return -1 * r
+	}
+	return 0
 }
 
-func (m *MinusToken) LeftBinding() int32 {
-	return m.lbp
+func NewMinsToken(p *Parser) *BinaryToken {
+	return &BinaryToken{
+		rightBinding: 10,
+		leftBinding:  100,
+		token:        "-",
+		nudFunc:      MinusTokenNud,
+		ledFunc:      MinusTokenLed,
+		p:            p,
+	}
 }
-
-func (m *MinusToken) RightBinding() int32 {
-    return m.rbp
-}
-
-func (m *MinusToken) Nud() Value  {
-    right := m.p.Parse(m.LeftBinding())
-    r, _ := right.(int64)
-    return -1 * r
-}
-
-func (m *MinusToken) Literal() string {
-    return "-"
-}
-
-func NewMinsToken(p *Parser) *MinusToken {
-    return &MinusToken {
-        lbp: 100,
-        rbp: 10,
-        p: p,
-    }
-}
-
-var _ = Token(&MinusToken{})
 
 // Parser to parse expression
 type Parser struct {
@@ -212,9 +218,7 @@ func (p *Parser) consumeChar() (rune, error) {
 		p.curTokenPos += w
 		return r, nil
 	}
-	// 表示da
 	return r, eol
-
 }
 
 func (p *Parser) preChar() (rune, error) {
@@ -274,14 +278,14 @@ func (p *Parser) getNextToken() Token {
 	case '+':
 		p.consumeChar()
 		return NewAddToken(p)
-    case '-':
-        p.consumeChar()
-        return NewMinsToken(p)
+	case '-':
+		p.consumeChar()
+		return NewMinsToken(p)
 	default:
 		var buffer bytes.Buffer
 
-        if p.isDigit(r) {
-           for p.isDigit(r) && err == nil {
+		if p.isDigit(r) {
+			for p.isDigit(r) && err == nil {
 				buffer.WriteRune(r)
 				p.consumeChar()
 				r, err = p.peekChar()
@@ -296,25 +300,25 @@ func (p *Parser) getNextToken() Token {
 	return eof
 }
 
-
 var token Token
+
 // Parse parse expresion
 func (p *Parser) Parse(rbp int32) Value {
-    old := token
+	old := token
 	token = p.getNextToken()
 	fmt.Printf("second token %s\n", token.Literal())
 	leftValue := old.Nud()
 	fmt.Printf("rbp  %d\n", rbp)
 	for rbp < token.LeftBinding() && token != eof {
-        old = token
-        // 这里必须先使用token
+		old = token
+		// 这里必须先使用token
 		token = p.getNextToken()
 		leftValue = old.Led(leftValue)
 	}
 	return leftValue
 }
 
-func (p *Parser)Expr() Value {
-    token  = p.getNextToken()
-    return p.Parse(0)
+func (p *Parser) Expr() Value {
+	token = p.getNextToken()
+	return p.Parse(0)
 }
