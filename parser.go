@@ -157,7 +157,7 @@ func AddTokenNud(t Token) Value {
 
 func MinusTokenLed(token Token, leftVal Value) Value {
 	if m, ok := token.(BinaryToken); ok {
-        rightVal := m.p.Parse(m.RightBinding())
+		rightVal := m.p.Parse(m.RightBinding())
 		var left int64
 		var right int64
 		left, _ = leftVal.(int64)
